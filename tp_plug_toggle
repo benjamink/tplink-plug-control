@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+
+import json
+import os
+import argparse
+from tplinkcloud import TPLinkDeviceManager
+
+
+class TpToggle():
+
+    def __init__(self):
+        self.args = self._parseArgs()
+        self.config = self._getConfig()
+        self.device_manager = self._connect()
+
+        method = getattr(self, self.args.task)
+        if self.args.devices:
+            for device in self.args.devices:
+                d_obj = self.device_manager.find_device(device)
+                method(device, d_obj)
+        else:
+            method()
+
+    def _parseArgs(self):
+        p = argparse.ArgumentParser()
+
+        p.add_argument('-c', '--config',
+                       help='Location of config.json',
+                       default=f'{os.environ["HOME"]}/.tplink/config.json')
+        p.add_argument('-d', '--devices',
+                       nargs='*',
+                       help='List of device names to operate on')
+        p.add_argument('-t', '--task', type=str,
+                       choices=['toggle', 'on', 'off', 'list'])
+
+        return p.parse_args()
+
+    def _getConfig(self):
+        try:
+            with open(self.args.config, 'r') as f:
+                config = json.loads(f.read())
+            return config
+        except FileExistsError:
+            raise
+
+    def _connect(self):
+        try:
+            tpconn = TPLinkDeviceManager(self.config['username'],
+                                         self.config['password'])
+            return tpconn
+        except ConnectionError:
+            raise
+
+    def list(self):
+        dl = self.device_manager.get_devices()
+        if dl:
+            print(f'Found {len(dl)} devices')
+            for d in dl:
+                print(f'{d.model_type.name} device called {d.get_alias()}')
+        else:
+            print('No devices found')
+        return
+
+    def toggle(self, device=None, d_obj=None):
+        if d_obj.is_on():
+            curstate = 'on'
+            newstate = 'off'
+        else:
+            curstate = 'off'
+            newstate = 'on'
+
+        print(f'Device {device} is currently {curstate}.')
+        print(f'Turning {device} {newstate}.')
+
+        d_obj.toggle()
+
+    def on(self, device=None, d_obj=None):
+        print(f'Turning device {device} on')
+        d_obj.power_on()
+
+    def off(self, device=None, d_obj=None):
+        print(f'Turning device {device} off')
+
+        d_obj.power_off()
+
+
+if __name__ == '__main__':
+    tp = TpToggle()
