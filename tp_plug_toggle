@@ -3,6 +3,7 @@
 import json
 import os
 import argparse
+import pprint
 from tplinkcloud import TPLinkDeviceManager
 
 
@@ -31,7 +32,7 @@ class TpToggle():
                        nargs='*',
                        help='List of device names to operate on')
         p.add_argument('-t', '--task', type=str,
-                       choices=['toggle', 'on', 'off', 'list'])
+                       choices=['toggle', 'on', 'off', 'list', 'info'])
 
         return p.parse_args()
 
@@ -56,10 +57,41 @@ class TpToggle():
         if dl:
             print(f'Found {len(dl)} devices')
             for d in dl:
-                print(f'{d.model_type.name} device called {d.get_alias()}')
+                try:
+                    if d.is_on():
+                        curstatus = "ON"
+                    else:
+                        curstatus = "OFF"
+                    t = d.get_time()
+                except KeyError:
+                    curstatus = "UNKNOWN"
+
+                t_str = f'{t.year}-{t.month}-{t.mday} {t.hour}:{t.min}:{t.sec}'
+                print(
+                    f'{d.get_alias():<30} ({curstatus:<7}) - ',
+                    f'TYPE: {d.model_type.name:<12} - ',
+                    f'TIME: {t_str}')
         else:
             print('No devices found')
         return
+
+    def info(self, device=None, d_obj=None):
+        try:
+            if d_obj.is_on():
+                curstate = "ON"
+            else:
+                curstate = "OFF"
+            t = d_obj.get_time()
+            t_str = f'{t.year}-{t.month}-{t.mday} {t.hour}:{t.min}:{t.sec}'
+
+        except KeyError:
+            curstate = "UNKNOWN"
+
+        print(f'Device state: {curstate}')
+        print(f'Device time: {t_str}')
+        print(f'Device SSID: {d_obj.get_net_info().ssid}')
+        print(f'MODEL: {d_obj.model_type.name}')
+        pprint.pprint(d_obj.device_info.__dict__)
 
     def toggle(self, device=None, d_obj=None):
         if d_obj.is_on():
